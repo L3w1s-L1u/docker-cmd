@@ -24,6 +24,9 @@ ip_addr='{{ .NetworkSettings.IPAddress }}'
 pid='{{ .State.Pid }}'
 
 # ################ commands #################### 
+# Note that since Makefile use sed pattern to match functions defined here, 
+#the blank between ")" and "{" is essential
+
 # docker-bash:  execute bash in container
 # param:        <container's ID>
 docker-bash() {
@@ -60,7 +63,7 @@ docker-pid() {
 # docker-rmi:   delete specified images
 # param:        -d delete all dangling images
 # param:        -a delete all images
-docker-rmi(){
+docker-rmi() {
     parsed_opt=`getopt -o adh -n "$0" -- "$@"`
     # parse option failed
     if [ $? != 0 ]; then echo "Terminating..." >&2 ; exit 1; fi
@@ -96,7 +99,7 @@ docker-rmi(){
                 exit 0
             ;;
         esac
-    elif ["$delete" == "dangling" ];then
+    elif [ "$delete" == "dangling" ];then
         exec sudo $docker rmi $(sudo docker images -q --filter "dangling=true")
         exit  $?
     fi
