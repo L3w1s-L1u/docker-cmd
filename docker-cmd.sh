@@ -80,7 +80,7 @@ docker-rmi() {
                 shift 1 ;;
             -h) docker-help $0;
                 shift ; exit 0;;
-            --) shift ; break ;;
+            --) shift ; break;;
             *)  echo " Internal error!" ; exit 127
         esac
     done
@@ -93,7 +93,6 @@ docker-rmi() {
                 exit $?
             ;;
             NO|No|no|N|n) 
-                break
             ;;
             *)  echo "Only yes or no accepted."; 
                 exit 0
@@ -120,24 +119,24 @@ docker-rm() {
     while true;do
     	case "$1" in
     		-a) 
-    		    	delete="all"
-    			shift; break;;
-		-f)
-		    	force="true"
-			shift; break;;	
+   		    	delete="all"
+    			shift; ;;
+		    -f)
+		    	forced="true"
+			    shift; ;;	
     		-i) 
-               	 	delete="from_image"
-               	 	delete_from_image=$2
-    			shift 2; break;;
+           	 	delete="from_image"
+           	 	delete_from_image="$2"
+    			shift 2; ;;
     		-h) 	
-			docker-help $0 	
-			shift; exit 0;;
+			    docker-help $0 	
+			    shift; exit 0;;
+            -x) 
+           		delete="exited"
+  			    shift; ;;
             # delimter of non-option arguments
-            	-x) 
-               		delete="exited"
-    			shift 1; break;;
     		--) 
-			shift; break ;;	
+		        shift; break;;	
     		*) 
 			echo " Internal error!" ; exit 127 ;;
     	esac
@@ -152,35 +151,40 @@ docker-rm() {
         case "$line" in
             YES|Yes|yes|Y|y)
                 exec sudo $docker rm  -f $(sudo $docker ps -aq )  
-            break;;
-            NO|No|no|N|n) break;;
-            *) echo "Only yes or no accepted."; exit 0;;
+                ;;
+            NO|No|no|N|n) 
+                ;;
+            *) 
+                echo "Only yes or no accepted."; exit 0;;
         esac
         return $?
     elif [ "$delete" == "from_image" ];then
-	containers=`sudo docker ps -aq`
-	for cid in $containers;do
-		status=`sudo $docker inspect --format={{ .State.Status }} $cid`
-		if [ "running" == "$status" ];then
-			if ["$forced" == "true" ];then
-				echo "This will delete running container $cid from image: $delete_from_image. Are you sure? ( Y|N )"
-				read line
-				case "$line" in
+	    containers=`sudo docker ps -aq`
+	    for cid in $containers;do
+	    	status=`sudo $docker inspect --format='{{ .State.Status }}' $cid`
+            echo $cid: $status
+	    	if [ "running" == "$status" ];then
+	    		if [ "$forced" == "true" ];then
+	    			echo "This will delete running container $cid from image: $delete_from_image. Are you sure? ( Y|N )"
+	    			read line
+	    			case "$line" in
              				YES|Yes|yes|Y|y)
-       						exec sudo $docker rm $cid
-            					break;;
-            				NO|No|no|N|n) break;;
-            				*) echo "Only yes or no accepted."; exit 0;;
-				esac
-        			return $?
-			else
-				echo "Could not delete running containers. Use -f to force deletion"
-				exit -1
-			fi
-		else
+       						    exec sudo $docker rm -f $cid
+            					;;
+            				NO|No|no|N|n) 
+                                ;;
+            				*) 
+                                echo "Only yes or no accepted."; exit 0;;
+	    			esac
+         			return $?
+	    		else
+	    			echo "Could not delete running containers. Use -f to force deletion"
+	    			exit -1
+	    		fi
+	    	else
 				exec sudo $docker rm $cid
-		fi
-	done
+	    	fi
+	    done
     fi
 }
 
@@ -194,22 +198,23 @@ case ${docker_cmd} in
         echo "error, docker-bash returned $?"
         exit -1; 
     fi 
-    break;;
+    ;;
     'docker-help') docker-help "$@"
-    break;;
+    ;;
     'docker-ip') docker-ip "$@"
     if [ !$? ];then 
         echo "error in getting ip address"
         exit -1; 
     fi 
-    break;;
+    ;;
     'docker-log') docker-log
-    break;;
+    ;;
     'docker-pid') docker-pid "$@"
-    break;;
+    ;;
     'docker-rm') docker-rm "$@"
-    break;;
+    ;;
     'docker-rmi') docker-rmi "$@"
-    break;;
-    *) echo "no such command"; exit 127 ;;
+    ;;
+    *) echo "docker-cmd: no such command"; exit 127 ;;
 esac
+
