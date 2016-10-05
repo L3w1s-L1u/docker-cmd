@@ -66,7 +66,7 @@ docker-pid() {
 docker-rmi() {
     parsed_opt=`getopt -o adh -n "$0" -- "$@"`
     # parse option failed
-    if [ $? != 0 ]; then echo "Terminating..." >&2 ; exit 1; fi
+    if [ $? != 0 ]; then echo "Parsing option failed. Terminating..." >&2 ; exit 1; fi
     
     eval set -- "$parsed_opt"
 
@@ -111,28 +111,35 @@ docker-rmi() {
 # param: -i <image ID> delete containers created from specified image
 # param: -h show help info abour docker-rm
 docker-rm() {
-    parsed_opt=`getopt -o xahi: -n "$0" -- "$@"`
+    parsed_opt=`getopt -o afhi:x -n "$0" -- "$@"`
     # parse option failed
-    if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+    if [ $? != 0 ] ; then echo "Parsing option failed. Terminating..." >&2 ; exit 1 ; fi
 
     eval set -- "$parsed_opt"
 
     while true;do
     	case "$1" in
     		-a) 
-    		    delete="all"
-    			shift 1; break;;
+    		    	delete="all"
+    			shift; break;;
+		-f)
+		    	force="true"
+			shift; break;;	
     		-i) 
-                delete="from_image"
-                delete_from_image=$2
+               	 	delete="from_image"
+               	 	delete_from_image=$2
     			shift 2; break;;
-    		-h) docker-help $0; shift ; exit 0 ;;
+    		-h) 	
+			docker-help $0 	
+			shift; exit 0;;
             # delimter of non-option arguments
-            -x) 
-                delete="exited"
+            	-x) 
+               		delete="exited"
     			shift 1; break;;
-    		--) shift; break ;;	
-    		*) echo " Internal error!" ; exit 127 ;;
+    		--) 
+			shift; break ;;	
+    		*) 
+			echo " Internal error!" ; exit 127 ;;
     	esac
     done
     
@@ -151,8 +158,29 @@ docker-rm() {
         esac
         return $?
     elif [ "$delete" == "from_image" ];then
-        exec sudo $docker rm `$docker ps -a |grep "${delete_from_image}" | cut -f1 -d" "`
-        return $?
+	containers=`sudo docker ps -aq`
+	for cid in $containers;do
+		status=`sudo $docker inspect --format={{ .State.Status }} $cid`
+		if [ "running" == "$status" ];then
+			if ["$forced" == "true" ];then
+				echo "This will delete running container $cid from image: $delete_from_image. Are you sure? ( Y|N )"
+				read line
+				case "$line" in
+             				YES|Yes|yes|Y|y)
+       						exec sudo $docker rm $cid
+            					break;;
+            				NO|No|no|N|n) break;;
+            				*) echo "Only yes or no accepted."; exit 0;;
+				esac
+        			return $?
+			else
+				echo "Could not delete running containers. Use -f to force deletion"
+				exit -1
+			fi
+		else
+				exec sudo $docker rm $cid
+		fi
+	done
     fi
 }
 
